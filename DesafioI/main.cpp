@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+=======
 #include <iostream>
 #include <random>
 
@@ -284,3 +286,4 @@ int main()
 
     return 0;
 }
+>>>>>>> cfca585ab76af81f9f39615d3611c0d011d1453b
