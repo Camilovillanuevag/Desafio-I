@@ -1,30 +1,29 @@
 #include <iostream>
+#include <random>
 
 using namespace std;
 
 unsigned char* crearTablero(int ancho, int alto, int &bytesPorFila)
 {
     bytesPorFila = ancho / 8;
-
     unsigned char* tablero = new unsigned char[alto * bytesPorFila];
-
     return tablero;
 }
 
 void inicializarTablero(unsigned char* tablero, int alto, int bytesPorFila)
 {
-    for(int i = 0; i < alto * bytesPorFila; i++)
-        tablero[i] = 0;
+    for(int pos = 0; pos < alto * bytesPorFila; pos++)
+        tablero[pos] = 0;
 }
 
 void imprimirTablero(unsigned char* tablero, int ancho, int alto, int bytesPorFila)
 {
-    for(int y = 0; y < alto; y++)
+    for(int fila = 0; fila < alto; fila++)
     {
-        for(int x = 0; x < ancho; x++)
+        for(int columna = 0; columna < ancho; columna++)
         {
-            int indice = y * bytesPorFila + (x / 8);
-            int bit = 7 - (x % 8);
+            int indice = fila * bytesPorFila + (columna / 8);
+            int bit = 7 - (columna % 8);
 
             if((tablero[indice] >> bit) & 1)
                 cout << "#";
@@ -38,8 +37,8 @@ void imprimirTablero(unsigned char* tablero, int ancho, int alto, int bytesPorFi
 
 void crearPieza(unsigned char pieza[4], int tipo)
 {
-    for(int i = 0; i < 4; i++)
-        pieza[i] = 0;
+    for(int pos = 0; pos < 4; pos++)
+        pieza[pos] = 0;
 
     switch(tipo)
     {
@@ -83,24 +82,24 @@ int obtenerAnchoPieza(int tipo)
 {
     switch(tipo)
     {
-    case 0: return 4; // I
-    case 1: return 2; // O
-    case 2: return 3; // T
-    case 3: return 4; // S
-    case 4: return 4; // Z
-    case 5: return 3; // J
-    case 6: return 3; // L
+    case 0: return 4;
+    case 1: return 2;
+    case 2: return 3;
+    case 3: return 3;
+    case 4: return 3;
+    case 5: return 3;
+    case 6: return 3;
     default: return 4;
     }
 }
 
 void imprimirPieza(unsigned char pieza[4])
 {
-    for(int y = 0; y < 4; y++)
+    for(int fila = 0; fila < 4; fila++)
     {
         for(int bit = 7; bit >= 0; bit--)
         {
-            if((pieza[y] >> bit) & 1)
+            if((pieza[fila] >> bit) & 1)
                 cout << "#";
             else
                 cout << ".";
@@ -112,39 +111,98 @@ void imprimirPieza(unsigned char pieza[4])
 
 int generarPieza()
 {
-    static int pieza = 0;
+    static random_device rd;
+    static mt19937 gen(rd());
+    static uniform_int_distribution<int> dist(0,6);
 
-    pieza++;
-
-    if(pieza == 7)
-        pieza = 0;
-
-    return pieza;
+    return dist(gen);
 }
+
+
+
+bool hayColision(unsigned char* tablero, unsigned char pieza[4],
+                 int x, int y, int bytesPorFila, int alto)
+{
+    for(int fila = 0; fila < 4; fila++)
+    {
+        if(pieza[fila] == 0)
+            continue;
+
+        if(y + fila >= alto)
+            return true;
+
+        int baseIndice = (y + fila) * bytesPorFila;
+        int byteIndex = x / 8;
+        int bitOffset = x % 8;
+
+        unsigned char izquierda = pieza[fila] >> bitOffset;
+
+        if(tablero[baseIndice + byteIndex] & izquierda)
+            return true;
+
+        if(bitOffset != 0 && byteIndex + 1 < bytesPorFila)
+        {
+            unsigned char derecha = pieza[fila] << (8 - bitOffset);
+
+            if(tablero[baseIndice + byteIndex + 1] & derecha)
+                return true;
+        }
+    }
+
+    return false;
+}
+
 
 void colocarPieza(unsigned char* tablero, unsigned char pieza[4],
                   int x, int y, int bytesPorFila, int alto)
 {
     for(int fila = 0; fila < 4; fila++)
     {
-        if (y + fila >= alto) break;
+        if(y + fila >= alto)
+            break;
 
         int baseIndice = (y + fila) * bytesPorFila;
         int byteIndex = x / 8;
         int bitOffset = x % 8;
 
-        if (byteIndex >= bytesPorFila) continue;
+        if(byteIndex >= bytesPorFila)
+            continue;
 
         unsigned char parteIzquierda = pieza[fila] >> bitOffset;
-        unsigned char parteDerecha = pieza[fila] << (8 - bitOffset);
 
         tablero[baseIndice + byteIndex] |= parteIzquierda;
 
-        if (byteIndex + 1 < bytesPorFila)
+        if(bitOffset != 0 && byteIndex + 1 < bytesPorFila)
         {
+            unsigned char parteDerecha = pieza[fila] << (8 - bitOffset);
             tablero[baseIndice + byteIndex + 1] |= parteDerecha;
         }
     }
+}
+
+bool columnaLlena(unsigned char* tablero, int ancho, int alto, int bytesPorFila)
+{
+    for(int col = 0; col < ancho; col++)
+    {
+        bool llena = true;
+
+        for(int fila = 0; fila < alto; fila++)
+        {
+            int indice = fila * bytesPorFila + (col / 8);
+            int bit = 7 - (col % 8);
+
+            if(((tablero[indice] >> bit) & 1) == 0)
+            {
+                llena = false;
+                break;
+            }
+        }
+
+        if(llena)
+            return true;
+    }
+
+    return false;
 }
 
 int main()
@@ -171,23 +229,58 @@ int main()
 
     inicializarTablero(tablero, alto, bytesPorFila);
 
-    unsigned char pieza[4];
+    while(!columnaLlena(tablero, ancho, alto, bytesPorFila))
+    {
+        unsigned char pieza[4];
 
-    int tipo = generarPieza();
+        int tipo = generarPieza();
 
-    crearPieza(pieza, tipo);
+        crearPieza(pieza, tipo);
 
-    int anchoPieza = obtenerAnchoPieza(tipo);
-    int x = (ancho - anchoPieza) / 2;
-    int y = 0;
+        int anchoPieza = obtenerAnchoPieza(tipo);
 
-    colocarPieza(tablero, pieza, x, y, bytesPorFila, alto);
+        int x = (ancho - anchoPieza) / 2;
+        int y = 0;
 
-    cout << "\nTablero:\n";
+        if(hayColision(tablero, pieza, x, y, bytesPorFila, alto))
+        {
+            cout << "Game Over\n";
+            delete[] tablero;
+            return 0;
+        }
 
-    imprimirTablero(tablero, ancho, alto, bytesPorFila);
+        while(!hayColision(tablero, pieza, x, y + 1, bytesPorFila, alto))
+        {
+            y++;
 
-    delete[] tablero;
+            unsigned char* tableroTemp = new unsigned char[alto * bytesPorFila];
+
+            for(int pos = 0; pos < alto * bytesPorFila; pos++)
+                tableroTemp[pos] = tablero[pos];
+
+            colocarPieza(tableroTemp, pieza, x, y, bytesPorFila, alto);
+
+            cout << "\n";
+            imprimirTablero(tableroTemp, ancho, alto, bytesPorFila);
+
+            delete[] tableroTemp;
+        }
+
+        colocarPieza(tablero, pieza, x, y, bytesPorFila, alto);
+
+        if(columnaLlena(tablero, ancho, alto, bytesPorFila))
+        {
+            cout << "\nJuego terminado: una columna se lleno\n";
+            imprimirTablero(tablero, ancho, alto, bytesPorFila);
+
+            delete[] tablero;
+            return 0;
+        }
+
+        cout << "\nTablero actualizado:\n";
+        imprimirTablero(tablero, ancho, alto, bytesPorFila);
+    }
+
 
     return 0;
 }
