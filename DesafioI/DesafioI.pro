@@ -4,4 +4,12 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += \
-        Desafio-I/DesafioI/main.cpp
+        juego.cpp \
+        main.cpp \
+        pieza.cpp \
+        tablero.cpp
+
+HEADERS += \
+    juego.h \
+    pieza.h \
+    tablero.h
